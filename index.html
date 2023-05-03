@@ -90,6 +90,10 @@
       <span>Duration: <span id="duration"></span></span>
 
       <div id="actions">
+        <svg id="toggle_loopback" width="24" height="24">
+          <image href="ear.svg" width="24" height="24" />
+        </svg>
+
         <svg id="stop_recording" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stop-circle">
           <circle cx="12" cy="12" r="10"></circle><rect width="6" height="6" x="9" y="9"></rect>
         </svg>
@@ -107,12 +111,16 @@
       let amplitudes = [];
       let currentAmplitudes = [];
 
-      let globalStream = null;
       let recorder = null;
+      let globalStream = null;
+      let globalSource = null;
+      let globalAnalyser = null;
 
       let curAmplInterval = null;
       let avgAmplInterval = null;
       let durationInterval = null;
+
+      let loopback = false;
 
       let downloadBlob = null;
 
@@ -131,13 +139,13 @@
           recorder.start();
 
           const analyser = audioContext.createAnalyser();
+          globalAnalyser = analyser;
 
           // Create a MediaStreamAudioSourceNode
           // Feed the HTMLMediaElement into it
           const source = audioContext.createMediaStreamSource(stream);
+          globalSource = source;
           source.connect(analyser);
-          // Enable audio loopback:
-          analyser.connect(audioContext.destination);
 
           const bufferLength = analyser.frequencyBinCount;
           const dataArray = new Uint8Array(bufferLength);
@@ -240,6 +248,19 @@
           // Revoke the URL
           URL.revokeObjectURL(url);
         })
+      });
+
+      // Loopback
+      document.getElementById('toggle_loopback').addEventListener('click', () => {
+        loopback = !loopback;
+
+        if (loopback) {
+          globalSource.connect(audioContext.destination);
+          document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear-off.svg");
+        } else {
+          globalSource.disconnect(audioContext.destination);
+          document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear.svg");
+        }
       });
     </script>
   </body>
