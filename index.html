@@ -26,6 +26,21 @@
         font-family: sans-serif;
       }
 
+      #overlay_click {
+        position: absolute;
+        inset: 0;
+
+        background: #111111;
+        z-index: 10;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+
+        text-align: center;
+      }
+
       #bars {
         height: 100vh;
         gap: 2px;
@@ -82,6 +97,17 @@
     </style>
   </head>
   <body>
+    <div id="overlay_click">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mouse-pointer-click">
+        <path d="m9 9 5 12 1.774-5.226L21 14 9 9z"></path><path d="m16.071 16.071 4.243 4.243"></path><path d="m7.188 2.239.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656-2.12 2.122"></path>
+      </svg>
+
+      <div id="overlay_text">
+        <h1>Microphone Recording Web App with Bar Visualization</h1>
+        <p>Click anywhere to start using this website</p>
+      </div>
+    </div>
+
     <div id="bars"></div>
 
     <div id="stats">
@@ -124,143 +150,147 @@
 
       let downloadBlob = null;
 
-      const audioContext = new AudioContext();
-      navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          autoGainControl: false,
-          noiseCancellation: false
-        },
-        video: false
-      })
-        .then(stream => {
-          globalStream = stream;
-          recorder = new MediaRecorder(stream);
-          recorder.start();
+      document.getElementById('overlay_click').addEventListener('click', () => {
+        document.getElementById('overlay_click').style.display = 'none';
 
-          const analyser = audioContext.createAnalyser();
-          globalAnalyser = analyser;
-
-          // Create a MediaStreamAudioSourceNode
-          // Feed the HTMLMediaElement into it
-          const source = audioContext.createMediaStreamSource(stream);
-          globalSource = source;
-          source.connect(analyser);
-
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-
-          // The script will get all amplitudes in a loop of 5ms each
-          // and will put them in the currentAmplitudes array
-          // In parallel, a loop of 100ms will average the currentAmplitudes
-          // and put them in the amplitudes array
-          // The amplitudes array will be used to draw the visualization
-          
-          curAmplInterval = setInterval(() => {
-            analyser.getByteFrequencyData(dataArray);
-
-            for (let i = 0; i < bufferLength; i++) {
-              currentAmplitudes.push(dataArray[i]);
-            }
-          }, AVG_PERIOD);
-
-          avgAmplInterval = setInterval(() => {
-            const sum = currentAmplitudes.reduce((a, b) => a + b, 0);
-            const average = sum / currentAmplitudes.length;
-            amplitudes.push(average);
-
-            // Create new bar
-            const barHeight = average * 2 + 2;
-
-            const bar = document.createElement('div');
-            bar.style.width = `2px`;
-            bar.style.height = `${barHeight}px`;
-            bar.style.background = `white`;
-            bars.appendChild(bar);
-
-            currentAmplitudes = [];
-
-            // Stats
-            // Average amplitude
-            const averageSum = amplitudes.reduce((a, b) => a + b, 0);
-            const averageAverage = averageSum / amplitudes.length;
-            document.getElementById('average').innerText = averageAverage.toFixed(8);
-
-            // Max amplitude
-            const maxAmplitude = Math.max(...amplitudes);
-            document.getElementById('max_amplitude').innerText = maxAmplitude.toFixed(8);
-          }, BAR_DELAY);
+        const audioContext = new AudioContext();
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            autoGainControl: false,
+            noiseCancellation: false
+          },
+          video: false
         })
-        .catch(err => {
-          console.error('Error getting microphone access', err);
+          .then(stream => {
+            globalStream = stream;
+            recorder = new MediaRecorder(stream);
+            recorder.start();
+
+            const analyser = audioContext.createAnalyser();
+            globalAnalyser = analyser;
+
+            // Create a MediaStreamAudioSourceNode
+            // Feed the HTMLMediaElement into it
+            const source = audioContext.createMediaStreamSource(stream);
+            globalSource = source;
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            // The script will get all amplitudes in a loop of 5ms each
+            // and will put them in the currentAmplitudes array
+            // In parallel, a loop of 100ms will average the currentAmplitudes
+            // and put them in the amplitudes array
+            // The amplitudes array will be used to draw the visualization
+            
+            curAmplInterval = setInterval(() => {
+              analyser.getByteFrequencyData(dataArray);
+
+              for (let i = 0; i < bufferLength; i++) {
+                currentAmplitudes.push(dataArray[i]);
+              }
+            }, AVG_PERIOD);
+
+            avgAmplInterval = setInterval(() => {
+              const sum = currentAmplitudes.reduce((a, b) => a + b, 0);
+              const average = sum / currentAmplitudes.length;
+              amplitudes.push(average);
+
+              // Create new bar
+              const barHeight = average * 2 + 2;
+
+              const bar = document.createElement('div');
+              bar.style.width = `2px`;
+              bar.style.height = `${barHeight}px`;
+              bar.style.background = `white`;
+              bars.appendChild(bar);
+
+              currentAmplitudes = [];
+
+              // Stats
+              // Average amplitude
+              const averageSum = amplitudes.reduce((a, b) => a + b, 0);
+              const averageAverage = averageSum / amplitudes.length;
+              document.getElementById('average').innerText = averageAverage.toFixed(8);
+
+              // Max amplitude
+              const maxAmplitude = Math.max(...amplitudes);
+              document.getElementById('max_amplitude').innerText = maxAmplitude.toFixed(8);
+            }, BAR_DELAY);
+          })
+          .catch(err => {
+            console.error('Error getting microphone access', err);
+          });
+
+        // Duration
+        durationInterval = setInterval(() => {
+          const duration = amplitudes.length * BAR_DELAY / 1000;
+          document.getElementById('duration').innerText = duration.toFixed(2);
+        }, 100);
+
+        const stopRecording = () => {
+          return new Promise((resolve, reject) => {
+            recorder.ondataavailable = e => {
+              const blob = new Blob([e.data], { type: 'audio/webm' });
+              downloadBlob = blob;
+
+              // Reset the recorder
+              recorder.ondataavailable = null;
+
+              resolve(true);
+            };
+
+            if (downloadBlob) {
+              resolve(true);
+            }
+
+            recorder.stop();
+            globalStream.getTracks().forEach(track => track.stop());
+
+            document.getElementById('stop_recording').style.display = 'none';
+
+            clearInterval(curAmplInterval);
+            clearInterval(avgAmplInterval);
+            clearInterval(durationInterval);
+          })
+        };
+
+        document.getElementById('stop_recording').addEventListener('click', () => {
+          stopRecording();
         });
 
-      // Duration
-      durationInterval = setInterval(() => {
-        const duration = amplitudes.length * BAR_DELAY / 1000;
-        document.getElementById('duration').innerText = duration.toFixed(2);
-      }, 100);
+        document.getElementById('download_recording').addEventListener('click', () => {
+          stopRecording().then(success => {
+            const url = URL.createObjectURL(downloadBlob);
 
-      const stopRecording = () => {
-        return new Promise((resolve, reject) => {
-          recorder.ondataavailable = e => {
-            const blob = new Blob([e.data], { type: 'audio/webm' });
-            downloadBlob = blob;
+            // Redirect to the recording
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'recording.webm';
+            a.click();
 
-            // Reset the recorder
-            recorder.ondataavailable = null;
+            // Remove the element
+            a.remove();
 
-            resolve(true);
-          };
+            // Revoke the URL
+            URL.revokeObjectURL(url);
+          })
+        });
 
-          if (downloadBlob) {
-            resolve(true);
+        // Loopback
+        document.getElementById('toggle_loopback').addEventListener('click', () => {
+          loopback = !loopback;
+
+          if (loopback) {
+            globalSource.connect(audioContext.destination);
+            document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear-off.svg");
+          } else {
+            globalSource.disconnect(audioContext.destination);
+            document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear.svg");
           }
-
-          recorder.stop();
-          globalStream.getTracks().forEach(track => track.stop());
-
-          document.getElementById('stop_recording').style.display = 'none';
-
-          clearInterval(curAmplInterval);
-          clearInterval(avgAmplInterval);
-          clearInterval(durationInterval);
-        })
-      };
-
-      document.getElementById('stop_recording').addEventListener('click', () => {
-        stopRecording();
-      });
-
-      document.getElementById('download_recording').addEventListener('click', () => {
-        stopRecording().then(success => {
-          const url = URL.createObjectURL(downloadBlob);
-
-          // Redirect to the recording
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'recording.webm';
-          a.click();
-
-          // Remove the element
-          a.remove();
-
-          // Revoke the URL
-          URL.revokeObjectURL(url);
-        })
-      });
-
-      // Loopback
-      document.getElementById('toggle_loopback').addEventListener('click', () => {
-        loopback = !loopback;
-
-        if (loopback) {
-          globalSource.connect(audioContext.destination);
-          document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear-off.svg");
-        } else {
-          globalSource.disconnect(audioContext.destination);
-          document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear.svg");
-        }
+        });
       });
     </script>
   </body>
