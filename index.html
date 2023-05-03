@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Microphone Recording Web App with Bar Visualization</title>
+    <meta name="description" content="Simple visualization of a microphone input with amplitude bars">
+
+    <!-- Meta -->
+    <meta name="author" content="busybox11">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Microphone Recording Web App with Bar Visualization">
+    <meta property="og:description" content="Simple visualization of a microphone input with amplitude bars">
+    <meta property="og:url" content="https://github.com/busybox11/web-micrecord-waveform">
+    <meta property="og:image" content="https://github.com/busybox11/web-micrecord-waveform/blob/master/screenshot.png">
+    <meta property="og:type" content="website">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: black;
+        color: white;
+
+        font-family: sans-serif;
+      }
+
+      #bars {
+        height: 100vh;
+        gap: 2px;
+        display: flex;
+        flex-direction: row;
+        justify-content: left;
+        align-items: center;
+        overflow: auto;
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+      }
+
+      #stats {
+        position: absolute;
+        bottom: 2.5rem;
+        right: 3rem;
+        text-align: right;
+
+        min-width: 10rem;
+
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        border: 1px solid #FFFFFF50;
+      }
+
+      #stats span {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      }
+
+      #stats > span > span {
+        font-family: monospace;
+        font-size: 1.3rem;
+        font-weight: bold;
+      }
+
+      #actions {
+        margin-top: 0.5rem;
+        margin-bottom: 0.25rem;
+
+        display: flex;
+        align-items: center;
+        justify-content: end;
+        gap: 0.75rem;
+      }
+
+      #actions > svg {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bars"></div>
+
+    <div id="stats">
+      <span>Average: <span id="average"></span></span>
+      <span>Max amplitude: <span id="max_amplitude"></span></span>
+      <span>Duration: <span id="duration"></span></span>
+
+      <div id="actions">
+        <svg id="stop_recording" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stop-circle">
+          <circle cx="12" cy="12" r="10"></circle><rect width="6" height="6" x="9" y="9"></rect>
+        </svg>
+
+        <svg id="download_recording" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download-cloud">
+          <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path>
+        </svg>
+      </div>
+    </div>
+
+    <script>
+      const BAR_DELAY = 100;
+      const AVG_PERIOD = 5;
+
+      let amplitudes = [];
+      let currentAmplitudes = [];
+
+      let globalStream = null;
+      let recorder = null;
+
+      let curAmplInterval = null;
+      let avgAmplInterval = null;
+      let durationInterval = null;
+
+      let downloadBlob = null;
+
+      const audioContext = new AudioContext();
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseCancellation: false
+        },
+        video: false
+      })
+        .then(stream => {
+          globalStream = stream;
+          recorder = new MediaRecorder(stream);
+          recorder.start();
+
+          const analyser = audioContext.createAnalyser();
+
+          // Create a MediaStreamAudioSourceNode
+          // Feed the HTMLMediaElement into it
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          // Enable audio loopback:
+          analyser.connect(audioContext.destination);
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          // The script will get all amplitudes in a loop of 5ms each
+          // and will put them in the currentAmplitudes array
+          // In parallel, a loop of 100ms will average the currentAmplitudes
+          // and put them in the amplitudes array
+          // The amplitudes array will be used to draw the visualization
+          
+          curAmplInterval = setInterval(() => {
+            analyser.getByteFrequencyData(dataArray);
+
+            for (let i = 0; i < bufferLength; i++) {
+              currentAmplitudes.push(dataArray[i]);
+            }
+          }, AVG_PERIOD);
+
+          avgAmplInterval = setInterval(() => {
+            const sum = currentAmplitudes.reduce((a, b) => a + b, 0);
+            const average = sum / currentAmplitudes.length;
+            amplitudes.push(average);
+
+            // Create new bar
+            const barHeight = average * 2 + 2;
+
+            const bar = document.createElement('div');
+            bar.style.width = `2px`;
+            bar.style.height = `${barHeight}px`;
+            bar.style.background = `white`;
+            bars.appendChild(bar);
+
+            currentAmplitudes = [];
+
+            // Stats
+            // Average amplitude
+            const averageSum = amplitudes.reduce((a, b) => a + b, 0);
+            const averageAverage = averageSum / amplitudes.length;
+            document.getElementById('average').innerText = averageAverage.toFixed(8);
+
+            // Max amplitude
+            const maxAmplitude = Math.max(...amplitudes);
+            document.getElementById('max_amplitude').innerText = maxAmplitude.toFixed(8);
+          }, BAR_DELAY);
+        })
+        .catch(err => {
+          console.error('Error getting microphone access', err);
+        });
+
+      // Duration
+      durationInterval = setInterval(() => {
+        const duration = amplitudes.length * BAR_DELAY / 1000;
+        document.getElementById('duration').innerText = duration.toFixed(2);
+      }, 100);
+
+      const stopRecording = () => {
+        return new Promise((resolve, reject) => {
+          recorder.ondataavailable = e => {
+            const blob = new Blob([e.data], { type: 'audio/webm' });
+            downloadBlob = blob;
+
+            // Reset the recorder
+            recorder.ondataavailable = null;
+
+            resolve(true);
+          };
+
+          if (downloadBlob) {
+            resolve(true);
+          }
+
+          recorder.stop();
+          globalStream.getTracks().forEach(track => track.stop());
+
+          document.getElementById('stop_recording').style.display = 'none';
+
+          clearInterval(curAmplInterval);
+          clearInterval(avgAmplInterval);
+          clearInterval(durationInterval);
+        })
+      };
+
+      document.getElementById('stop_recording').addEventListener('click', () => {
+        stopRecording();
+      });
+
+      document.getElementById('download_recording').addEventListener('click', () => {
+        stopRecording().then(success => {
+          const url = URL.createObjectURL(downloadBlob);
+
+          // Redirect to the recording
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'recording.webm';
+          a.click();
+
+          // Remove the element
+          a.remove();
+
+          // Revoke the URL
+          URL.revokeObjectURL(url);
+        })
+      });
+    </script>
+  </body>
+</html>
