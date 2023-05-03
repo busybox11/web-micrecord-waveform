@@ -92,7 +92,7 @@
         gap: 0.75rem;
       }
 
-      #actions > svg {
+      #actions > div {
         cursor: pointer;
       }
     </style>
@@ -117,17 +117,23 @@
       <span>Duration: <span id="duration"></span></span>
 
       <div id="actions">
-        <svg id="toggle_loopback" width="24" height="24">
-          <image href="ear.svg" width="24" height="24" />
-        </svg>
+        <div id="toggle_loopback" title="Toggle on mic loopback">
+          <svg width="24" height="24">
+            <image href="ear-off.svg" width="24" height="24" />
+          </svg>
+        </div>
 
-        <svg id="stop_recording" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stop-circle">
-          <circle cx="12" cy="12" r="10"></circle><rect width="6" height="6" x="9" y="9"></rect>
-        </svg>
+        <div id="stop_recording" title="Stop recording">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-stop-circle">
+            <circle cx="12" cy="12" r="10"></circle><rect width="6" height="6" x="9" y="9"></rect>
+          </svg>
+        </div>
 
-        <svg id="download_recording" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download-cloud">
-          <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path>
-        </svg>
+        <div id="download_recording" title="Download recording">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download-cloud">
+            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m8 17 4 4 4-4"></path>
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -286,10 +292,12 @@
 
           if (loopback) {
             globalSource.connect(audioContext.destination);
-            document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear-off.svg");
+            document.getElementById('toggle_loopback').firstElementChild.firstElementChild.setAttribute("href", "ear.svg");
+            document.getElementById('toggle_loopback').setAttribute("title", "Toggle off mic loopback");
           } else {
             globalSource.disconnect(audioContext.destination);
-            document.getElementById('toggle_loopback').firstElementChild.setAttribute("href", "ear.svg");
+            document.getElementById('toggle_loopback').firstElementChild.firstElementChild.setAttribute("href", "ear-off.svg");
+            document.getElementById('toggle_loopback').setAttribute("title", "Toggle on mic loopback");
           }
         });
       });
